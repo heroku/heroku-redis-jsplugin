@@ -21,6 +21,7 @@
   "dependencies": {
     "co": "^4.4.0",
     "columnify": "^1.4.1",
+    "heroku-cli-util": "^1.10.3",
     "heroku-client": "^1.9.1",
     "q": "^1.1.2"
   },
