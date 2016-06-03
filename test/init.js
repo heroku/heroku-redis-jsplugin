@@ -3,7 +3,6 @@
 
 global.cli = require('heroku-cli-util')
 cli.raiseErrors = true
-cli.color.enabled = false
 
 let chai = require('chai')
 let chaiAsPromised = require('chai-as-promised')
