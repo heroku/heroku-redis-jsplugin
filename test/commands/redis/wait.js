@@ -8,6 +8,10 @@ let command = require('../../../lib/commands/redis/wait.js')
 
 let clock
 
+describe('heroku redis:timeout', function () {
+  require('./shared.js').shouldHandleArgs(command)
+})
+
 describe('heroku redis:cli', function () {
   beforeEach(function () {
     cli.mockConsole()

@@ -8,6 +8,10 @@ let exit = require('heroku-cli-util').exit
 let command = require('../../../lib/commands/redis/maintenance.js')
 
 describe('heroku redis:maintenance', function () {
+  require('./shared.js').shouldHandleArgs(command)
+})
+
+describe('heroku redis:maintenance', function () {
   beforeEach(function () {
     cli.mockConsole()
     nock.cleanAll()
@@ -66,5 +70,44 @@ describe('heroku redis:maintenance', function () {
     .then(() => redis.done())
     .then(() => expect(cli.stdout).to.equal('Message\n'))
     .then(() => expect(cli.stderr).to.equal(''))
+  })
+
+  it('# run errors out when not in maintenance', function () {
+    let app = nock('https://api.heroku.com:443')
+      .get('/apps/example/addons').reply(200, [
+        {name: 'redis-haiku', addon_service: {name: 'heroku-redis'}, plan: {name: 'premium-0'}, config_vars: ['REDIS_FOO', 'REDIS_BAR']}
+      ])
+
+    let app_info = nock('https://api.heroku.com:443')
+      .get('/apps/example').reply(200, { maintenance: false })
+
+    return expect(command.run({app: 'example', args: {}, flags: {run: true}, auth: {username: 'foobar', password: 'password'}})).to.be.rejectedWith(exit.ErrorExit)
+    .then(() => app.done())
+    .then(() => app_info.done())
+    .then(() => expect(cli.stdout).to.equal(''))
+    .then(() => expect(cli.stderr).to.equal(' ▸    Application must be in maintenance mode or --force flag must be used\n'))
+  })
+
+  it('# errors out on hobby dynos', function () {
+    let app = nock('https://api.heroku.com:443')
+      .get('/apps/example/addons').reply(200, [
+        {name: 'redis-haiku', addon_service: {name: 'heroku-redis'}, plan: {name: 'hobby'}, config_vars: ['REDIS_FOO', 'REDIS_BAR']}
+      ])
+
+    return expect(command.run({app: 'example', args: {}, auth: {username: 'foobar', password: 'password'}})).to.be.rejected
+    .then(() => expect(cli.stderr).to.equal(' ▸    redis:maintenance is not available for hobby-dev instances\n'))
+    .then(() => app.done())
+  })
+
+  it('# errors out on bad maintenance window', function () {
+    let app = nock('https://api.heroku.com:443')
+      .get('/apps/example/addons').reply(200, [
+        {name: 'redis-haiku', addon_service: {name: 'heroku-redis'}, plan: {name: 'premium-0'}, config_vars: ['REDIS_FOO', 'REDIS_BAR']}
+      ])
+
+    return expect(command.run({app: 'example', args: {}, flags: {window: 'Mon 10:45'}, auth: {username: 'foobar', password: 'password'}})).to.be.rejected
+    .then(() => app.done())
+    .then(() => expect(cli.stdout).to.equal(''))
+    .then(() => expect(cli.stderr).to.equal(' ▸    Maintenance windows must be "Day HH:MM", where MM is 00 or 30.\n'))
   })
 })

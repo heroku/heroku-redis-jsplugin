@@ -9,6 +9,11 @@ let expect = require('chai').expect
 let command, net, tls, tunnel
 
 describe('heroku redis:cli', function () {
+  let command = proxyquire('../../../lib/commands/redis/cli.js', {net: {}, tls: {}, ssh2: {}})
+  require('./shared.js').shouldHandleArgs(command)
+})
+
+describe('heroku redis:cli', function () {
   beforeEach(function () {
     cli.mockConsole()
 

@@ -7,6 +7,10 @@ let expect = require('chai').expect
 let command = require('../../../lib/commands/redis/credentials.js')
 
 describe('heroku redis:credentials', function () {
+  require('./shared.js').shouldHandleArgs(command)
+})
+
+describe('heroku redis:credentials', function () {
   beforeEach(function () {
     cli.mockConsole()
     nock.cleanAll()

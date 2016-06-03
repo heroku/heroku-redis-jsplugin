@@ -3,13 +3,19 @@
 
 let expect = require('chai').expect
 let nock = require('nock')
+let exit = require('heroku-cli-util').exit
 
 let command = require('../../../lib/commands/redis/timeout.js')
+
+describe('heroku redis:timeout', function () {
+  require('./shared.js').shouldHandleArgs(command, {seconds: '5'})
+})
 
 describe('heroku redis:timeout', function () {
   beforeEach(function () {
     cli.mockConsole()
     nock.cleanAll()
+    exit.mock()
   })
 
   it('# sets the timout', function () {
@@ -52,5 +58,11 @@ Connections to the Redis instance will be stopped after idling for 5 seconds.
 Connections to the Redis instance can idle indefinitely.
 `))
     .then(() => expect(cli.stderr).to.equal(''))
+  })
+
+  it('# errors on missing timeout', function () {
+    return expect(command.run({app: 'example', flags: {}, args: {}})).to.be.rejectedWith(exit.ErrorExit)
+    .then(() => expect(cli.stdout).to.equal(''))
+    .then(() => expect(cli.stderr).to.equal(' ▸    Please specify a valid timeout value.\n'))
   })
 })
