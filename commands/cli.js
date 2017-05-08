@@ -88,13 +88,12 @@ function redisCLI (uri, client) {
   client.on('data', function (data) {
     reply.execute(data)
   })
-  client.on('error', function (error) {
-    cli.error(error)
-    process.exit(1)
-  })
-  client.on('end', function () {
-    console.log('\nDisconnected from instance.')
-    process.exit(0)
+  return new Promise((resolve, reject) => {
+    client.on('error', reject)
+    client.on('end', function () {
+      console.log('\nDisconnected from instance.')
+      resolve()
+    })
   })
 }
 
@@ -138,7 +137,7 @@ function maybeTunnel (redis, config) {
     } else {
       client = net.connect({port: uri.port, host: uri.hostname})
     }
-    redisCLI(uri, client)
+    return redisCLI(uri, client)
   }
 }
 
@@ -169,6 +168,6 @@ module.exports = {
     }).join(', ')
 
     cli.log(`Connecting to ${addon.name} (${nonBastionVars}):`)
-    maybeTunnel(redis, vars)
+    return maybeTunnel(redis, vars)
   }))
 }

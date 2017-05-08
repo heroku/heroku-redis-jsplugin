@@ -5,6 +5,7 @@ let nock = require('nock')
 let sinon = require('sinon')
 let proxyquire = require('proxyquire').noCallThru()
 let expect = require('chai').expect
+let Duplex = require('stream').Duplex
 
 let command, net, tls, tunnel
 
@@ -17,27 +18,25 @@ describe('heroku redis:cli', function () {
   beforeEach(function () {
     cli.mockConsole()
 
-    let client = {
-      write: sinon.stub(),
-      on: sinon.stub()
+    class Client extends Duplex {
+      _write (chunk, encoding, callback) { }
+      _read (size) { this.emit('end') }
     }
 
     net = {
-      connect: sinon.stub().returns(client)
+      connect: sinon.stub().returns(new Client())
     }
 
     tls = {
-      connect: sinon.stub().returns(client)
+      connect: sinon.stub().returns(new Client())
     }
 
     tunnel = sinon.stub()
 
-    let Client = function () {
+    let ssh2 = { Client: function () {
       this.on = sinon.stub()
       this.connect = tunnel
-    }
-
-    let ssh2 = { Client }
+    }}
 
     command = proxyquire('../../commands/cli.js', {net, tls, ssh2})
   })
@@ -56,7 +55,6 @@ describe('heroku redis:cli', function () {
         resource_url: 'redis://foobar:password@example.com:8649',
         plan: 'hobby'
       })
-
     return command.run({app: 'example', flags: {confirm: 'example'}, args: {}, auth: {username: 'foobar', password: 'password'}})
     .then(() => app.done())
     .then(() => configVars.done())
