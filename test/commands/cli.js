@@ -6,8 +6,9 @@ let sinon = require('sinon')
 let proxyquire = require('proxyquire').noCallThru()
 let expect = require('chai').expect
 let Duplex = require('stream').Duplex
+let EventEmitter = require('events').EventEmitter
 
-let command, net, tls, tunnel
+let command, net, tls
 
 describe('heroku redis:cli', function () {
   let command = proxyquire('../../commands/cli.js', {net: {}, tls: {}, ssh2: {}})
@@ -31,12 +32,17 @@ describe('heroku redis:cli', function () {
       connect: sinon.stub().returns(new Client())
     }
 
-    tunnel = sinon.stub()
+    class Tunnel extends EventEmitter {
+      connect () {
+        this.emit('ready')
+      }
 
-    let ssh2 = { Client: function () {
-      this.on = sinon.stub()
-      this.connect = tunnel
-    }}
+      forwardOut (localHost, localPort, hostname, port, cb) {
+        cb(null, new Client())
+      }
+    }
+
+    let ssh2 = {Client: Tunnel}
 
     command = proxyquire('../../commands/cli.js', {net, tls, ssh2})
   })
@@ -111,6 +117,5 @@ describe('heroku redis:cli', function () {
     .then(() => redis.done())
     .then(() => expect(cli.stdout).to.equal('Connecting to redis-haiku (REDIS_URL):\n'))
     .then(() => expect(cli.stderr).to.equal(''))
-    .then(() => expect(tunnel.called).to.equal(true))
   })
 })

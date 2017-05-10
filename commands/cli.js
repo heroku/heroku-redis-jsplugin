@@ -97,6 +97,29 @@ function redisCLI (uri, client) {
   })
 }
 
+function bastionConnect ({uri, bastions, config}) {
+  return new Promise((resolve, reject) => {
+    let tunnel = new Client()
+    tunnel.on('ready', function () {
+      let localPort = Math.floor(Math.random() * (65535 - 49152) + 49152)
+      tunnel.forwardOut('localhost', localPort, uri.hostname, uri.port, function (err, stream) {
+        if (err) {
+          cli.error(err)
+        }
+        stream.on('close', function () {
+          tunnel.end()
+        })
+        redisCLI(uri, stream).then(resolve).catch(reject)
+      })
+    })
+    tunnel.connect({
+      host: bastions.split(',')[0],
+      username: 'bastion',
+      privateKey: match(config, /_BASTION_KEY/)
+    })
+  })
+}
+
 function match (config, lookup) {
   for (var key in config) {
     if (lookup.test(key)) {
@@ -112,24 +135,7 @@ function maybeTunnel (redis, config) {
   let uri = url.parse(redis.resource_url)
 
   if (bastions != null) {
-    let tunnel = new Client()
-    tunnel.on('ready', function () {
-      let localPort = Math.floor(Math.random() * (65535 - 49152) + 49152)
-      tunnel.forwardOut('localhost', localPort, uri.hostname, uri.port, function (err, stream) {
-        if (err) {
-          cli.error(err)
-        }
-        stream.on('close', function () {
-          tunnel.end()
-        })
-        redisCLI(uri, stream)
-      })
-    })
-    tunnel.connect({
-      host: bastions.split(',')[0],
-      username: 'bastion',
-      privateKey: match(config, /_BASTION_KEY/)
-    })
+    return bastionConnect({uri, bastions, config})
   } else {
     let client
     if (!hobby) {
