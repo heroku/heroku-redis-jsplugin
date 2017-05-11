@@ -103,12 +103,8 @@ function bastionConnect ({uri, bastions, config}) {
     tunnel.on('ready', function () {
       let localPort = Math.floor(Math.random() * (65535 - 49152) + 49152)
       tunnel.forwardOut('localhost', localPort, uri.hostname, uri.port, function (err, stream) {
-        if (err) {
-          cli.error(err)
-        }
-        stream.on('close', function () {
-          tunnel.end()
-        })
+        if (err) return reject(err)
+        stream.on('close', () => tunnel.end())
         redisCLI(uri, stream).then(resolve).catch(reject)
       })
     })
