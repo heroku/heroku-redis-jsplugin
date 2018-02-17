@@ -15,7 +15,7 @@
   },
   "devDependencies": {
     "@oclif/dev-cli": "^1.2.16",
-    "@oclif/plugin-legacy": "^1.0.2",
+    "@oclif/plugin-legacy": "^1.0.4",
     "chai": "^3.5.0",
     "chai-as-promised": "^6.0.0",
     "lolex": "^1.5.2",
@@ -46,5 +46,12 @@
     "postpublish": "rm .oclif.manifest.json",
     "prepublishOnly": "oclif-dev manifest",
     "test": "nyc mocha && standard | snazzy"
+  },
+  "oclif": {
+    "topics": {
+      "redis": {
+        "description": "manage heroku redis instances"
+      }
+    }
   }
 }
