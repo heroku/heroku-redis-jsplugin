@@ -7,7 +7,6 @@
     "url": "https://github.com/heroku/heroku-redis-jsplugin/issues"
   },
   "dependencies": {
-    "co": "^4.6.0",
     "heroku-cli-util": "^8.0.9",
     "redis-parser": "^3.0.0",
     "ssh2": "^0.6.1"
