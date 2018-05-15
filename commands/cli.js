@@ -1,10 +1,8 @@
 'use strict'
 
-let co = require('co')
-let api = require('../lib/shared')
 let cli = require('heroku-cli-util')
 let net = require('net')
-let Parser = require('ioredis/lib/parsers/javascript')
+let Parser = require('redis-parser')
 let readline = require('readline')
 let tls = require('tls')
 let url = require('url')
@@ -14,60 +12,61 @@ const REPLY_OK = 'OK'
 
 function redisCLI (uri, client) {
   let io = readline.createInterface(process.stdin, process.stdout)
-  let reply = new Parser()
+  let reply = new Parser({
+    returnReply (reply) {
+      switch (state) {
+        case 'monitoring':
+          if (reply !== REPLY_OK) {
+            console.log(reply)
+          }
+          break
+        case 'subscriber':
+          if (Array.isArray(reply)) {
+            reply.forEach(function (value, i) {
+              console.log(`${i + 1}) ${value}`)
+            })
+          } else {
+            console.log(reply)
+          }
+          break
+        case 'connect':
+          if (reply !== REPLY_OK) {
+            console.log(reply)
+          }
+          state = 'normal'
+          io.prompt()
+          break
+        case 'closing':
+          if (reply !== REPLY_OK) {
+            console.log(reply)
+          }
+          break
+        default:
+          if (Array.isArray(reply)) {
+            reply.forEach(function (value, i) {
+              console.log(`${i + 1}) ${value}`)
+            })
+          } else {
+            console.log(reply)
+          }
+          io.prompt()
+          break
+      }
+    },
+    returnError (err) {
+      console.log(err.message)
+      io.prompt()
+    },
+    returnFatalError (err) {
+      client.emit('error', err)
+      console.dir(err)
+    }
+  })
   let state = 'connect'
 
   client.write(`AUTH ${uri.auth.split(':')[1]}\n`)
 
   io.setPrompt(uri.host + '> ')
-
-  reply.on('reply', function (reply) {
-    switch (state) {
-      case 'monitoring':
-        if (reply !== REPLY_OK) {
-          console.log(reply)
-        }
-        break
-      case 'subscriber':
-        if (Array.isArray(reply)) {
-          reply.forEach(function (value, i) {
-            console.log(`${i + 1}) ${value}`)
-          })
-        } else {
-          console.log(reply)
-        }
-        break
-      case 'connect':
-        if (reply !== REPLY_OK) {
-          console.log(reply)
-        }
-        state = 'normal'
-        io.prompt()
-        break
-      case 'closing':
-        if (reply !== REPLY_OK) {
-          console.log(reply)
-        }
-        break
-      default:
-        if (Array.isArray(reply)) {
-          reply.forEach(function (value, i) {
-            console.log(`${i + 1}) ${value}`)
-          })
-        } else {
-          console.log(reply)
-        }
-        io.prompt()
-        break
-    }
-  })
-  reply.on('reply error', function (reply) {
-    console.log(reply.message)
-    io.prompt()
-  })
-  reply.on('error', function (err) {
-    client.emit('error', err)
-  })
   io.on('line', function (line) {
     switch (line.split(' ')[0]) {
       case 'MONITOR':
@@ -151,16 +150,17 @@ module.exports = {
   description: 'opens a redis prompt',
   args: [{name: 'database', optional: true}],
   flags: [{name: 'confirm', char: 'c', hasValue: true}],
-  run: cli.command({preauth: true}, co.wrap(function * (context, heroku) {
-    let addon = yield api.getRedisAddon(context, heroku)
+  run: cli.command({preauth: true}, async (context, heroku) => {
+    const api = require('../lib/shared')(context, heroku)
+    let addon = await api.getRedisAddon()
 
-    let config = yield heroku.get(`/apps/${context.app}/config-vars`)
+    let config = await heroku.get(`/apps/${context.app}/config-vars`)
 
-    let redis = yield api.request(context, `/redis/v0/databases/${addon.name}`)
+    let redis = await api.request(`/redis/v0/databases/${addon.name}`)
     let hobby = redis.plan.indexOf('hobby') === 0
 
     if (hobby) {
-      yield cli.confirmApp(context.app, context.flags.confirm, 'WARNING: Insecure action.\nAll data, including the Redis password, will not be encrypted.')
+      await cli.confirmApp(context.app, context.flags.confirm, 'WARNING: Insecure action.\nAll data, including the Redis password, will not be encrypted.')
     }
 
     let vars = {}
@@ -171,5 +171,5 @@ module.exports = {
 
     cli.log(`Connecting to ${addon.name} (${nonBastionVars}):`)
     return maybeTunnel(redis, vars)
-  }))
+  })
 }
